@@ -8,7 +8,7 @@ mod elementary_automata{
     }
     impl AutomataState{
         pub fn new(state_vec:Vec<bool>,rule: Rule)->AutomataState{
-            let mut new_state = AutomataState { state_vec:state_vec, generation: 0 ,rule:rule};
+            let new_state = AutomataState { state_vec:state_vec, generation: 0 ,rule:rule};
             new_state
         }
         pub fn move_next_gen(&mut self){
@@ -90,6 +90,7 @@ fn main() {
     };
     let rule = format!("{:b}", rule);
     let rule = elementary_automata::Rule::new(rule);
+
     // Hardcoding the initial state vector
     let mut initial_state_vec = vec![false; 101];
     initial_state_vec[51] = true;
@@ -103,7 +104,7 @@ fn main() {
         Err(_) => panic!("INVALID GENERATIONS: {}",generations),
     };
     automata.print_automata();
-    for gen in 1..=generations{
+    for _gen in 1..=generations{
         automata.move_next_gen();
         automata.print_automata();
     }
