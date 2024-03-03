@@ -1,6 +1,12 @@
 use crate::automata::traits::NextGenApplicable;
+use bevy::prelude::*;
+use bevy::render::mesh::shape;
+use bevy::sprite::MaterialMesh2dBundle;
+
+
+#[derive(Component)]
 pub struct AutomataState{
-    state_vec: Vec<bool>,
+    pub state_vec: Vec<bool>,
     generation: u32,
 }
 impl AutomataState {
@@ -8,6 +14,7 @@ impl AutomataState {
         let new_state = AutomataState { state_vec:state_vec, generation: 0};
         new_state
     }
+
     pub fn move_next_gen(&mut self, rule: &dyn NextGenApplicable){
         let max_len = self.state_vec.len();
         let mut new_state_vec:Vec<bool> = Vec::new();
@@ -47,5 +54,29 @@ impl AutomataState {
             }
         }
         println!("{}",print_string);
+    }
+
+    pub fn show_automata(&self, mut commands: Commands,
+                         mut meshes: ResMut<Assets<Mesh>>,
+                         mut materials: ResMut<Assets<ColorMaterial>>) {
+        let grid_width = 10; // Change this to the width of your grid
+
+        for (index, &cell_state) in self.state_vec.iter().enumerate() {
+            let material = if cell_state {
+                materials.add(<bevy::prelude::Color as Into<ColorMaterial>>::into(Color::WHITE))
+            } else {
+                materials.add(<bevy::prelude::Color as Into<ColorMaterial>>::into(Color::BLACK))
+            };
+
+            let x = (index % grid_width) as f32 * 10.0;
+            let y = (index / grid_width) as f32 * 10.0;
+
+            commands.spawn(MaterialMesh2dBundle{
+                mesh: meshes.add(Rectangle::default()).into(),
+                material: material,
+                transform: Transform::from_xyz(x, y, 0.0),
+                ..Default::default()
+            });
+        }
     }
 }

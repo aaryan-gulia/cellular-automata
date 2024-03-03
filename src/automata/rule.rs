@@ -1,5 +1,6 @@
 use crate::automata::traits::NextGenApplicable;
-
+use bevy::prelude::*;
+#[derive(Resource)]
 pub struct Rule{
     rule_array:[bool;8],
 }
