@@ -17,6 +17,7 @@ use automata::rule::Rule;
 use automata::state::*;
 use rendering::render::*;
 use rendering::diagnostics::*;
+use crate::automata::rule::Rule2D;
 use crate::automata::SimState;
 use crate::menu::ControlScreen;
 
@@ -118,6 +119,76 @@ fn main() {
         .add_systems(Update, (
         fps_text_update_system,
     ))
-        .add_plugins(CellularAutomata)
+        .add_plugins(CellularAutomata2D)
         .run();
+}
+
+pub struct CellularAutomata2D;
+impl Plugin for crate::CellularAutomata2D {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, setup_simulation_2d)
+            .add_systems(Update,update_cells_2d);
+    }
+}
+
+fn setup_simulation_2d(mut commands: Commands,
+                       mut meshes: ResMut<Assets<Mesh>>,
+                       mut materials: ResMut<Assets<ColorMaterial>>,
+                       asset_server: Res<AssetServer>,
+                       mut windows: Query<&mut Window, With<PrimaryWindow>>,
+){
+let rule = Rule2D{under_population: 2, over_population: 3, birth_min: 3, birth_max: 3};
+    let window_width = windows.single().width() as f32/2.0;
+    let cell_size = 20.0;
+    let mut grid_width = (window_width / cell_size) as usize;
+    let num_cells = grid_width * grid_width;
+    let mut automata = AutomataState2D::new(vec![false; num_cells]);
+
+    automata.start_with_glider(grid_width);
+
+    let mut index: usize = 0;
+    for mut cell in &mut automata.state_vec{
+        cell.position = calculate_cell_position_2d(grid_width, index);
+        index += 1;
+        cell.material = Some(create_cell_material(cell.state,&mut materials));
+        cell.entity = Some(commands.spawn(
+            MaterialMesh2dBundle{
+                mesh: Mesh2dHandle(meshes.add(Rectangle::new(20.0,20.0))),
+                material: create_cell_material(cell.state,&mut materials),
+                transform: Transform::from_xyz(cell.position.x,cell.position.y,0.),
+                ..Default::default()
+            }
+        ).id());
+    }
+
+    commands.insert_resource(automata);
+    commands.insert_resource(rule);
+    commands.insert_resource(SimState{is_running: false});
+}
+
+fn calculate_cell_position_2d(grid_width: usize, index: usize) -> Vec2 {
+    let x = (index % grid_width) as f32 * 20.0 + 10.0;
+    let y = ((index / grid_width) as f32 * 20.0 + 10.0) -320.;
+    Vec2::new(x as f32, y as f32)
+}
+
+fn update_cells_2d(
+    mut automata: ResMut<AutomataState2D>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    rule: Res<Rule2D>,
+    mut query: Query<(&mut Transform, &mut Handle<ColorMaterial>)>,
+    sim_state: Res<SimState>,
+) {
+    if sim_state.is_running == false {
+        return;
+    }
+    let grid_width = (automata.state_vec.len() as f32).sqrt() as usize;
+    automata.move_next_gen_parallel(&(*rule), grid_width);
+
+    for (index, mut cell) in automata.state_vec.iter_mut().enumerate() {
+        let (mut transform, mut material) = query.get_mut(cell.entity.unwrap()).unwrap();
+        *material = create_cell_material(cell.state, &mut materials);
+    }
 }

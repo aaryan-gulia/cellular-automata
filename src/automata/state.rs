@@ -1,6 +1,8 @@
-use crate::automata::traits::NextGenApplicable;
+use std::collections::HashSet;
+use crate::automata::traits::{NextGenApplicable, NextGenApplicable2D};
 use bevy::prelude::*;
 use rayon::prelude::*;
+use std::sync::Mutex;
 
 const X_EXTENT:f32= 1000.;
 #[derive(Component,Clone)]
@@ -101,5 +103,180 @@ impl AutomataState {
             }
         });
         self.generation += 1;
+    }
+}
+
+#[derive(Resource)]
+pub struct AutomataState2D{
+    pub state_vec: Vec<Cell>,
+    pub generation: u32,
+    pub active_indices: Mutex<HashSet<usize>>,
+}
+
+impl AutomataState2D{
+    pub fn new(state_vec: Vec<bool>) -> AutomataState2D {
+        let mut new_state = AutomataState2D { state_vec: Vec::new(), generation: 0 , active_indices: Mutex::new(HashSet::new())};
+        for (index, state) in state_vec.iter().enumerate() {
+            new_state.state_vec.push(Cell {
+                state: *state,
+                material: None,
+                position: Vec2::new(0.,0.),
+                entity: None
+            });
+        }
+        new_state
+    }
+    pub fn add_cell(&mut self, state: bool, width: usize, index: usize) {
+        self.state_vec.push(Cell {
+            state: state,
+            material: None,
+            position: Cell::calculate_cell_position(width as f32, index as f32),
+            entity: None
+        });
+    }
+
+    pub fn move_next_gen(&mut self, rule: &dyn NextGenApplicable2D, width: usize) {
+        let temp_state_vec = Arc::new(self.state_vec.clone());
+        let temp_active_indices = self.active_indices.lock().unwrap().clone();
+        for (index, &cell) in temp_active_indices.iter().enumerate() {
+            let mut num_alive = 0;
+
+            for i in 0..=2 {
+                for j in 0..=2{
+                    if i == 1 && j == 1 {
+                        continue;
+                    }
+                    if match temp_state_vec.get((cell as i32 + j as i32 -1 + ((i as i32 -1) * width as i32))as usize){
+                        Some(t)=> t.state,
+                        None => false
+                    } {num_alive += 1;};
+                }
+            }
+            if rule.get_next_state(num_alive, self.state_vec.get(cell).expect("INVALID INDEX").state)
+            {
+                if self.state_vec.get(cell).expect("INVALID INDEX").state == false {
+                    self.turn_on_cell_with_index(cell, width);
+                }
+            }
+            else {
+                self.turn_off_cell_with_index(cell, width);
+            }
+        };
+        self.generation += 1;
+    }
+
+    pub fn move_next_gen_parallel(&mut self, rule: &dyn NextGenApplicable2D, width: usize) {
+        let temp_state_vec = Arc::new(self.state_vec.clone());
+        let temp_active_indices = self.active_indices.lock().unwrap().clone();
+        self.state_vec.par_iter_mut().enumerate().for_each(|(index, cell)| {
+            if temp_active_indices.contains(&index) {
+                let mut num_alive = 0;
+                let mut neighbours = HashSet::new();
+
+                for i in 0..=2 {
+                    for j in 0..=2{
+                        if i == 1 && j == 1 {
+                            continue;
+                        }
+                        let neighbour = (index as i32 + j as i32 -1 + ((i as i32 -1) * width as i32))as usize;
+                        if match temp_state_vec.get(neighbour){
+                            Some(t)=> t.state,
+                            None => false
+                        } {num_alive += 1;};
+                        neighbours.insert(neighbour);
+                    }
+                }
+                cell.state = rule.get_next_state(num_alive, temp_state_vec[index].state);
+                let mut active_indices = self.active_indices.lock().unwrap();
+                for neighbour in neighbours {
+                    active_indices.insert(neighbour);
+                }
+            }
+        });
+        self.generation += 1;
+    }
+
+    pub fn turn_on_cell_with_table(&mut self, row_index: usize, column_index: usize, width: usize) {
+        let index = row_index * width + column_index;
+        self.state_vec.get_mut(index).expect("INVALID CONVERSION FROM ROW AND COLUMN TO GLOBAL INDEX").state = true;
+        //modify active indices
+        self.active_indices.lock().unwrap().insert(index);
+        //check all neighbours and add them to active indices if necessary
+        for i in 0..=2 {
+            for j in 0..=2{
+                if i == 1 && j == 1 {
+                    continue;
+                }
+                let neighbour_index = (row_index as i32 + i as i32 -1) * width as i32 + (column_index as i32 + j as i32 -1);
+                if neighbour_index < 0 || neighbour_index >= (width * width) as i32 {
+                    continue;
+                }
+                if self.active_indices.lock().unwrap().contains(&(neighbour_index as usize)) == false{
+                    self.active_indices.lock().unwrap().insert(neighbour_index as usize);
+                }
+            }
+        }
+    }
+    pub fn turn_on_cell_with_index(&mut self, index: usize, width: usize) {
+        self.state_vec.get_mut(index).expect("INVALID INDEX").state = true;
+        //modify active indices
+        self.active_indices.lock().unwrap().insert(index);
+        //check all neighbours and add them to active indices if necessary
+        let row = index / width;
+        let column = index % width;
+        for i in 0..=2 {
+            for j in 0..=2{
+                if i == 1 && j == 1 {
+                    continue;
+                }
+                let neighbour_index = (index as i32 + j as i32 -1 + ((i as i32 -1) * width as i32))as usize;
+                if neighbour_index < 0 || neighbour_index >= (width * width)  {
+                    continue;
+                }
+                if self.active_indices.lock().unwrap().contains(&(neighbour_index as usize)) == false{
+                    self.active_indices.lock().unwrap().insert(neighbour_index as usize);
+                }
+            }
+        }
+    }
+
+    pub fn turn_off_cell_with_index(&mut self, index: usize, width: usize) {
+        self.state_vec.get_mut(index).expect("INVALID INDEX").state = false;
+        //check if any neighbour is alive, if not remove myself from active indices
+        let row = index / width;
+        let column = index % width;
+        let mut is_neighbour_alive = false;
+        for i in 0..=2 {
+            for j in 0..=2{
+                if i == 1 && j == 1 {
+                    continue;
+                }
+                let neighbour_index = (row as i32 + i as i32 -1) * width as i32 + (column as i32 + j as i32 -1);
+                if neighbour_index < 0 || neighbour_index >= (width * width) as i32 {
+                    continue;
+                }
+                if self.state_vec.get(neighbour_index as usize).expect("INVALID INDEX").state == true {
+                    is_neighbour_alive = true;
+                    break;
+                }
+            }
+        }
+        if is_neighbour_alive == false {
+            self.active_indices.lock().unwrap().retain(|&x| x != index);
+        }
+    }
+
+    pub fn start_with_glider(&mut self, width: usize) {
+        let centre = width / 2;
+        let glider_pattern = vec![
+            (centre - 1) * width + centre,
+            centre * width + centre + 1,
+            (centre + 1) * width + centre - 1,
+            (centre + 1) * width + centre,
+            (centre + 1) * width + centre + 1,
+        ];
+        for index in glider_pattern {
+            self.turn_on_cell_with_index(index, width);
+        }
     }
 }

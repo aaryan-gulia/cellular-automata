@@ -1,4 +1,4 @@
-use crate::automata::traits::NextGenApplicable;
+use crate::automata::traits::{NextGenApplicable, NextGenApplicable2D};
 use bevy::prelude::*;
 #[derive(Resource)]
 pub struct Rule{
@@ -30,5 +30,29 @@ impl Rule {
             counter += 1;
         };
         new_rule
+    }
+}
+
+#[derive(Resource)]
+pub struct Rule2D{
+    pub under_population: u8,
+    pub over_population: u8,
+    pub birth_min: u8,
+    pub birth_max: u8,
+}
+
+impl NextGenApplicable2D for Rule2D {
+    fn get_next_state(&self, alive_neighbours: u8, curr_cell:bool) -> bool {
+        if curr_cell {
+            if alive_neighbours < self.under_population || alive_neighbours > self.over_population {
+                return false
+            }
+            return true
+        } else {
+            if alive_neighbours >= self.birth_min && alive_neighbours <= self.birth_max {
+                return true
+            }
+            return false
+        }
     }
 }
