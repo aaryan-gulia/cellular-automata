@@ -1,7 +1,8 @@
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
-use crate::FpsText;
 
+#[derive(Component)]
+pub struct FpsText;
 /// Marker to find the container entity so we can show/hide the FPS counter
 #[derive(Component)]
 pub struct FpsRoot;

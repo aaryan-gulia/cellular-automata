@@ -4,7 +4,7 @@ use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 
 pub fn render_cell(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>,color_material: Handle<ColorMaterial>,position: Vec3){
     commands.spawn(MaterialMesh2dBundle{
-        mesh: Mesh2dHandle(meshes.add(Rectangle::new(15.0,15.0))),
+        mesh: Mesh2dHandle(meshes.add(Rectangle::new(20.0,20.0))),
         material: color_material,
         transform: Transform::from_xyz(position.x, position.y, position.z),
         ..Default::default()

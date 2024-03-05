@@ -7,15 +7,16 @@ pub struct Rule{
 
 impl NextGenApplicable for Rule {
     fn get_next_state(&self, prev: bool, current: bool, next: bool) -> bool {
-        let mut rule_applier:usize = 0;
-        if prev == false && current == false && next == false {rule_applier=0;}
-        else if prev == false && current == false && next == true {rule_applier=1;}
-        else if prev == false && current == true && next == false {rule_applier=2;}
-        else if prev == false && current == true && next == true {rule_applier=3;}
-        else if prev == true && current == false && next == false {rule_applier=4;}
-        else if prev == true && current == false && next == true {rule_applier=5;}
-        else if prev == true && current == true && next == false {rule_applier=6;}
-        else if prev == true && current == true && next == true {rule_applier=7;}
+        let rule_applier:usize = match (prev, current, next) {
+            (false, false, false) => 0,
+            (false, false, true) => 1,
+            (false, true, false) => 2,
+            (false, true, true) => 3,
+            (true, false, false) => 4,
+            (true, false, true) => 5,
+            (true, true, false) => 6,
+            (true, true, true) => 7,
+        };
 
         self.rule_array[7-rule_applier]
     }
