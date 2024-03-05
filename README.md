@@ -3,6 +3,8 @@ A Cellular Automata Engine using Rust and Bevy
 
 # Latest Progress
 - Elementary Cellular Automata simulation has been implemented in Bevy
+- Basic Conway's game of life simulation complete
+- Bevy UI implemented for user control 
 
 # Next Steps
 - Implementing run-time parameter adjustments with BevyUI
@@ -13,3 +15,6 @@ A Cellular Automata Engine using Rust and Bevy
 # Preview
 ![Screenrecording 1](imgs/Screen%20Recording%202024-03-03%20at%2006.16.54.MOV)
 *Rule 18: Elementary Cellular Automata*
+
+![Screenrecording 2](imgs/conways_life_demo1.mov)
+*Conway's Game of Life: Glider*
