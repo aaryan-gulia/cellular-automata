@@ -152,6 +152,10 @@ impl AutomataState2D{
                     } {num_alive += 1;};
                 }
             }
+            if(num_alive == 0 && self.state_vec.get(cell).expect("INVALID INDEX").state == false){
+                self.active_indices.lock().unwrap().retain(|&x| x != cell);
+                continue;
+            }
             if rule.get_next_state(num_alive, self.state_vec.get(cell).expect("INVALID INDEX").state)
             {
                 if self.state_vec.get(cell).expect("INVALID INDEX").state == false {
@@ -163,6 +167,7 @@ impl AutomataState2D{
             }
         };
         self.generation += 1;
+        println!("Number of Active Cells: {}", self.active_indices.lock().unwrap().len());
     }
 
     pub fn move_next_gen_parallel(&mut self, rule: &dyn NextGenApplicable2D, width: usize) {
@@ -172,13 +177,19 @@ impl AutomataState2D{
             if temp_active_indices.contains(&index) {
                 let mut num_alive = 0;
                 let mut neighbours = HashSet::new();
-
-                for i in 0..=2 {
-                    for j in 0..=2{
+                for mut i in 0..=2 {
+                    for mut j in 0..=2{
                         if i == 1 && j == 1 {
                             continue;
                         }
+                        if(j == 2) && (index % width == width - 1){j = -(width as i32-2);}
+                        if(j == 0) && (index % width == 0){j = width as i32;}
+                        if(i == 2) && (index / width == width - 1){i = -(width as i32-2);}
+                        if(i == 0) && (index / width == 0){i = width as i32;}
                         let neighbour = (index as i32 + j as i32 -1 + ((i as i32 -1) * width as i32))as usize;
+                        if neighbour < 0 || neighbour >= (width * width) {
+                            continue;
+                        }
                         if match temp_state_vec.get(neighbour){
                             Some(t)=> t.state,
                             None => false
@@ -186,14 +197,20 @@ impl AutomataState2D{
                         neighbours.insert(neighbour);
                     }
                 }
-                cell.state = rule.get_next_state(num_alive, temp_state_vec[index].state);
-                let mut active_indices = self.active_indices.lock().unwrap();
-                for neighbour in neighbours {
-                    active_indices.insert(neighbour);
+                if(num_alive == 0 && cell.state == false){
+                    self.active_indices.lock().unwrap().retain(|&x| x != index);
+                }
+                else{
+                    cell.state = rule.get_next_state(num_alive, temp_state_vec[index].state);
+                    let mut active_indices = self.active_indices.lock().unwrap();
+                    for neighbour in neighbours {
+                        active_indices.insert(neighbour);
+                    }
                 }
             }
         });
         self.generation += 1;
+        println!("Number of Active Cells: {}", self.active_indices.lock().unwrap().len());
     }
 
     pub fn turn_on_cell_with_table(&mut self, row_index: usize, column_index: usize, width: usize) {
@@ -276,6 +293,35 @@ impl AutomataState2D{
             (centre + 1) * width + centre + 1,
         ];
         for index in glider_pattern {
+            self.turn_on_cell_with_index(index, width);
+        }
+    }
+    pub fn start_with_gosper_glider_gun(&mut self, width: usize) {
+        let centre = width / 2;
+        let gosper_glider_gun_pattern = vec![
+            (5,1), (5,2), (6,1), (6,2), (5,11), (6,11), (7,11), (4,12), (3,13), (3,14), (8,12), (9,13), (9,14), (6,15), (4,16), (5,17), (6,17), (7,17), (6,18), (8,16), (3,21), (4,21), (5,21), (3,22), (4,22), (5,22), (2,23), (6,23), (1,25), (2,25), (6,25), (7,25), (3,35), (4,35), (3,36), (4,36)
+        ];
+        for (row, column) in gosper_glider_gun_pattern {
+            let index = (centre + row) * width + (centre + column);
+            self.turn_on_cell_with_index(index, width);
+        }
+    }
+
+    pub fn start_with_lwss(&mut self, width: usize) {
+        let centre = width / 2;
+        let lwss_pattern = vec![
+            (centre -2, centre),
+            (centre -1, centre),
+            (centre, centre),
+            (centre, centre + 1),
+            (centre, centre + 2),
+            (centre, centre + 3),
+            (centre -1, centre + 4),
+            (centre -3, centre + 4),
+            (centre -3, centre + 1),
+        ];
+        for (row, column) in lwss_pattern {
+            let index = row * width + column;
             self.turn_on_cell_with_index(index, width);
         }
     }
