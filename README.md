@@ -13,6 +13,9 @@ A Cellular Automata Engine using Rust and Bevy
 - Implementing parallel processing for GPU optimization
 
 # Preview
+![Screenrecording 3](imgs/conways_life_lwss_demo1.mov)
+*Conway's Game of Life: Light Weight Space Ship (LWSS)*
+
 ![Screenrecording 1](imgs/Screen%20Recording%202024-03-03%20at%2006.16.54.MOV)
 *Rule 18: Elementary Cellular Automata*
 
